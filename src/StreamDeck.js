@@ -34,6 +34,17 @@ class StreamDeck { // eslint-disable-line
 
   #imageCache = {};
 
+  /** @type {Sequence<HIDDeviceFilter>} */
+  #deviceFilters = [
+    {vendorId: 0x0fd9, productId: StreamDeckV1.PRODUCT_ID}, // Original
+    {vendorId: 0x0fd9, productId: StreamDeckMini.PRODUCT_ID}, // Mini
+    {vendorId: 0x0fd9, productId: StreamDeckXL.PRODUCT_ID}, // XL
+    {vendorId: 0x0fd9, productId: StreamDeckV2.PRODUCT_ID}, // V2
+    {vendorId: 0x0fd9, productId: 0x0080}, // MK.2
+    // Macropad GB4
+    {vendorId: 0x5049, productId: 0x001b, usagePage: 0x000c, usage: 0x0001},
+  ];
+
   /**
    * Constructor
    */
@@ -187,15 +198,7 @@ class StreamDeck { // eslint-disable-line
       return previousDevice;
     }
     if (showPicker) {
-      const opts = {filters: [
-        {vendorId: 0x0fd9, productId: StreamDeckV1.PRODUCT_ID}, // Original
-        {vendorId: 0x0fd9, productId: StreamDeckMini.PRODUCT_ID}, // Mini
-        {vendorId: 0x0fd9, productId: StreamDeckXL.PRODUCT_ID}, // XL
-        {vendorId: 0x0fd9, productId: StreamDeckV2.PRODUCT_ID}, // V2
-        {vendorId: 0x0fd9, productId: 0x0080}, // MK.2
-        {vendorId: 0x5049, productId: 0x001B,
-          usagePage: 0x000c, usage: 0x0001}, // Macropad GB4
-      ]};
+      const opts = {filters: this.#deviceFilters};
       const devices = await navigator.hid.requestDevice(opts);
       return devices[0];
     }
@@ -209,20 +212,23 @@ class StreamDeck { // eslint-disable-line
    */
   async #getPreviousDevice() {
     const devices = await navigator.hid.getDevices();
-    for (const device of devices) {
-      if (device.vendorId === 0x0fd9) {
-        if (device.productId === StreamDeckV1.PRODUCT_ID ||
-            device.productId === StreamDeckMini.PRODUCT_ID ||
-            device.productId === StreamDeckXL.PRODUCT_ID ||
-            device.productId === StreamDeckV2.PRODUCT_ID ||
-            device.productId === 0x0080) {
-          return device;
-        }
-      } else if (device.vendorId === 0x5049 && device.productId === 0x001B) {
-        return device;
-      }
-    }
-    return null;
+
+    // https://wicg.github.io/webhid/#dfn-match-any-filter
+    const device = devices.find((device) => {
+      return this.#deviceFilters.some((filter) => {
+        return Object.entries(filter).every(([key, value]) => {
+          if (key === 'productId' || key == 'vendorId') {
+            return device[key] === value;
+          } else {
+            return device.collections.some((collection) => {
+              return collection[key] === value;
+            });
+          }
+        });
+      });
+    });
+
+    return device ?? null;
   }
 
   /**

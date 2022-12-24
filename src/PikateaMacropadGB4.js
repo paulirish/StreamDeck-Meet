@@ -70,7 +70,7 @@ class MacropadGB4 { // eslint-disable-line
     182: 1, // First key (prev track)
     205: 2, // Second key (play/pause)
     181: 3, // Third key (next track)
-  }
+  };
 
   OFFSET = 0;
   ID_OFFSET = 0;
